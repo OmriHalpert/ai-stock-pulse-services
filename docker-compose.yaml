@@ -1,0 +1,117 @@
+name: ai-stock-pulse
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pulse-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pulse}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pulse_local_password}
+      POSTGRES_DB: ${POSTGRES_DB:-stock_pulse}
+    ports:
+      # Host-side 5433 by default so a local PostgreSQL on 5432 keeps working.
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pulse-db-data:/var/lib/postgresql/data
+      # Runs only on first boot of an empty volume. `docker compose down -v` to re-seed.
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pulse} -d ${POSTGRES_DB:-stock_pulse}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - pulse-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pulse-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://${POSTGRES_USER:-pulse}:${POSTGRES_PASSWORD:-pulse_local_password}@postgres:5432/${POSTGRES_DB:-stock_pulse}
+      DEFAULT_USER_ID: ${DEFAULT_USER_ID:-default-user}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - pulse-net
+
+  agent:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    container_name: pulse-agent
+    restart: unless-stopped
+    environment:
+      BACKEND_URL: http://backend:3000
+      DEFAULT_USER_ID: ${DEFAULT_USER_ID:-default-user}
+      POLL_INTERVAL_SECONDS: ${AGENT_POLL_INTERVAL_SECONDS:-900}
+      RUN_ON_STARTUP: ${AGENT_RUN_ON_STARTUP:-true}
+      NOISE_THRESHOLD_PCT: ${NOISE_THRESHOLD_PCT:-0.5}
+      MOMENTUM_THRESHOLD_PCT: ${MOMENTUM_THRESHOLD_PCT:-3.5}
+      ALERT_COOLDOWN_HOURS: ${ALERT_COOLDOWN_HOURS:-6}
+      EVENT_FRESHNESS_HOURS: ${EVENT_FRESHNESS_HOURS:-36}
+      MARKET_DATA_PROVIDER: ${MARKET_DATA_PROVIDER:-mock}
+      FINNHUB_API_KEY: ${FINNHUB_API_KEY:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
+      LLM_MODEL: ${LLM_MODEL:-google/gemma-4-26b-a4b-it:free}
+      LLM_FALLBACK_MODELS: ${LLM_FALLBACK_MODELS:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      # The worker touches a heartbeat file on every cycle; stale heartbeat = unhealthy.
+      test: ["CMD", "python", "-m", "app.healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - pulse-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+    container_name: pulse-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - pulse-net
+
+volumes:
+  pulse-db-data:
+
+networks:
+  pulse-net:
+    driver: bridge
