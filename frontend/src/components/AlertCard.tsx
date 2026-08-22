@@ -4,6 +4,8 @@ import {
   formatPrice,
   formatTimestamp,
   sentimentStyles,
+  triggerExplanations,
+  triggerLabels,
 } from '../lib/format';
 
 interface AlertCardProps {
@@ -13,7 +15,6 @@ interface AlertCardProps {
 
 export function AlertCard({ alert, onDismiss }: AlertCardProps) {
   const style = sentimentStyles[alert.sentiment];
-  const direction = changeDirection(alert.priceChange30d);
 
   return (
     <article className="panel group/card relative overflow-hidden p-4 transition hover:border-white/20">
@@ -34,20 +35,8 @@ export function AlertCard({ alert, onDismiss }: AlertCardProps) {
         <span className="text-sm text-slate-300">
           {formatPrice(alert.currentPrice)}
         </span>
-        {alert.priceChange30d && (
-          <span
-            className={`text-sm font-medium tabular-nums ${
-              direction === 'up'
-                ? 'text-emerald-300'
-                : direction === 'down'
-                  ? 'text-rose-300'
-                  : 'text-slate-400'
-            }`}
-          >
-            {alert.priceChange30d}
-            <span className="ml-1 text-xs text-slate-500">30d</span>
-          </span>
-        )}
+        <ChangeChip value={alert.dailyChange} label="today" />
+        <ChangeChip value={alert.priceChange30d} label="30d" />
         <time
           dateTime={alert.timestamp}
           className="ml-auto text-xs text-slate-500"
@@ -81,6 +70,16 @@ export function AlertCard({ alert, onDismiss }: AlertCardProps) {
       </p>
       <p className="mt-1.5 text-sm leading-relaxed text-slate-300">{alert.reason}</p>
 
+      {alert.trigger && (
+        <p className="mt-3 rounded-lg border border-white/5 bg-black/20 px-3 py-2 text-xs leading-relaxed text-slate-400">
+          <span className="font-semibold text-slate-300">
+            {triggerLabels[alert.trigger]}
+          </span>
+          {' — '}
+          {triggerExplanations[alert.trigger]}.
+        </p>
+      )}
+
       <details className="group mt-3">
         <summary className="cursor-pointer list-none text-xs font-medium text-cyan-300 hover:text-cyan-200">
           <span className="group-open:hidden">Show market context</span>
@@ -101,6 +100,25 @@ export function AlertCard({ alert, onDismiss }: AlertCardProps) {
         </ul>
       )}
     </article>
+  );
+}
+
+function ChangeChip({ value, label }: { value: string | null; label: string }) {
+  if (!value) return null;
+
+  const direction = changeDirection(value);
+  const tone =
+    direction === 'up'
+      ? 'text-emerald-300'
+      : direction === 'down'
+        ? 'text-rose-300'
+        : 'text-slate-400';
+
+  return (
+    <span className={`text-sm font-medium tabular-nums ${tone}`}>
+      {value}
+      <span className="ml-1 text-xs text-slate-500">{label}</span>
+    </span>
   );
 }
 

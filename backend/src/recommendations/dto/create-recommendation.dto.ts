@@ -11,6 +11,14 @@ import {
 export const SENTIMENTS = ['BULLISH', 'BEARISH', 'NEUTRAL'] as const;
 export type Sentiment = (typeof SENTIMENTS)[number];
 
+export const TRIGGERS = [
+  'MOMENTUM_SHIFT',
+  'EARNINGS_EVENT',
+  'ANALYST_ACTION',
+  'TREND_CONFIRMATION',
+] as const;
+export type Trigger = (typeof TRIGGERS)[number];
+
 export class CreateRecommendationDto {
   @IsOptional()
   @IsString()
@@ -41,6 +49,15 @@ export class CreateRecommendationDto {
   @IsString()
   @MaxLength(20)
   priceChange30d?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  dailyChange?: string;
+
+  @IsOptional()
+  @IsIn(TRIGGERS)
+  trigger?: Trigger;
 
   @IsOptional()
   @IsNumber()

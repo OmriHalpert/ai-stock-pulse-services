@@ -106,7 +106,9 @@ class BackendClient:
                 "reason": verdict.reason,
                 "newsSummary": verdict.news_summary,
                 "priceChange30d": f"{quote.change_30d_pct:+.2f}%",
+                "dailyChange": f"{quote.daily_change_pct:+.2f}%",
                 "currentPrice": round(quote.price, 2),
+                "trigger": signal.trigger.value,
                 "sources": list(verdict.sources),
             },
         )

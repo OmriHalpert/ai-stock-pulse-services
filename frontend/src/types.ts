@@ -1,5 +1,11 @@
 export type Sentiment = 'BULLISH' | 'BEARISH' | 'NEUTRAL';
 
+export type Trigger =
+  | 'MOMENTUM_SHIFT'
+  | 'EARNINGS_EVENT'
+  | 'ANALYST_ACTION'
+  | 'TREND_CONFIRMATION';
+
 export interface TrackedStock {
   id: number;
   user_id: string;
@@ -16,7 +22,9 @@ export interface Recommendation {
   reason: string;
   newsSummary: string;
   priceChange30d: string | null;
+  dailyChange: string | null;
   currentPrice: number | null;
+  trigger: Trigger | null;
   sources: string[];
   timestamp: string;
 }

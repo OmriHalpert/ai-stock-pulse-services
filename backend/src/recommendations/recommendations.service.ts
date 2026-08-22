@@ -1,7 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { normalizeTicker } from '../common/user-id.util';
-import { CreateRecommendationDto, Sentiment } from './dto/create-recommendation.dto';
+import {
+  CreateRecommendationDto,
+  Sentiment,
+  Trigger,
+} from './dto/create-recommendation.dto';
 
 interface RecommendationRow {
   id: number;
@@ -12,7 +16,9 @@ interface RecommendationRow {
   reason: string;
   news_summary: string;
   price_change_30d: string | null;
+  daily_change: string | null;
   current_price: string | null;
+  trigger_type: string | null;
   sources: string;
   timestamp: Date;
 }
@@ -26,7 +32,10 @@ export interface Recommendation {
   reason: string;
   newsSummary: string;
   priceChange30d: string | null;
+  dailyChange: string | null;
   currentPrice: number | null;
+  /** Null on alerts written before this was recorded. */
+  trigger: Trigger | null;
   sources: string[];
   timestamp: string;
 }
@@ -85,8 +94,8 @@ export class RecommendationsService {
     const row = await this.db.queryOne<RecommendationRow>(
       `INSERT INTO recommendations
          (user_id, ticker, sentiment, recommendation, reason, news_summary,
-          price_change_30d, current_price, sources)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          price_change_30d, daily_change, current_price, trigger_type, sources)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         userId,
@@ -96,7 +105,9 @@ export class RecommendationsService {
         dto.reason,
         dto.newsSummary,
         dto.priceChange30d ?? null,
+        dto.dailyChange ?? null,
         dto.currentPrice ?? null,
+        dto.trigger ?? null,
         JSON.stringify(dto.sources ?? []),
       ],
     );
@@ -188,8 +199,10 @@ function toRecommendation(row: RecommendationRow): Recommendation {
     reason: row.reason,
     newsSummary: row.news_summary,
     priceChange30d: row.price_change_30d,
+    dailyChange: row.daily_change,
     // NUMERIC arrives as a string from node-postgres to preserve precision.
     currentPrice: row.current_price === null ? null : Number(row.current_price),
+    trigger: row.trigger_type as Trigger | null,
     sources: parseSources(row.sources),
     timestamp: row.timestamp.toISOString(),
   };

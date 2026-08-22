@@ -26,8 +26,16 @@ CREATE TABLE IF NOT EXISTS recommendations (
     price_change_30d VARCHAR(20),
     current_price NUMERIC(10,2),
     sources TEXT NOT NULL,
+    -- What cleared the noise filter, so the dashboard can show why an alert
+    -- fired rather than only what the model concluded.
+    trigger_type VARCHAR(32), -- MOMENTUM_SHIFT, EARNINGS_EVENT, ANALYST_ACTION, TREND_CONFIRMATION
+    daily_change VARCHAR(20),
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Added after the first release; kept separate so existing volumes upgrade too.
+ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS trigger_type VARCHAR(32);
+ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS daily_change VARCHAR(20);
 
 -- The dashboard always reads the newest alerts for one tenant first.
 CREATE INDEX IF NOT EXISTS idx_recommendations_user_time

@@ -1,4 +1,4 @@
-import type { Sentiment } from '../types';
+import type { Sentiment, Trigger } from '../types';
 
 export function formatPrice(price: number | null): string {
   if (price === null || Number.isNaN(price)) return '—';
@@ -49,6 +49,25 @@ export function changeDirection(change: string | null): 'up' | 'down' | 'flat' {
   if (!Number.isFinite(parsed) || parsed === 0) return 'flat';
   return parsed > 0 ? 'up' : 'down';
 }
+
+/** Plain-English wording for what made an alert clear the noise filter. */
+export const triggerLabels: Record<Trigger, string> = {
+  MOMENTUM_SHIFT: 'Momentum shift',
+  EARNINGS_EVENT: 'Earnings event',
+  ANALYST_ACTION: 'Analyst rating action',
+  TREND_CONFIRMATION: '30-day trend continuation',
+};
+
+/**
+ * Why that trigger is worth an interruption. Shown verbatim on the alert so a
+ * news-driven call is not mistaken for a reaction to the day's price move.
+ */
+export const triggerExplanations: Record<Trigger, string> = {
+  MOMENTUM_SHIFT: "today's move cleared the alert threshold on its own",
+  EARNINGS_EVENT: 'results landed, which is material however the price reacts',
+  ANALYST_ACTION: 'an analyst changed their rating or price target',
+  TREND_CONFIRMATION: 'a smaller move pushed an already-strong 30-day trend further',
+};
 
 export const sentimentStyles: Record<
   Sentiment,

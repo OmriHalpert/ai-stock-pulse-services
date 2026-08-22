@@ -8,7 +8,7 @@ import logging
 import httpx
 
 from .config import Settings
-from .models import Sentiment, Signal, Verdict, format_pct
+from .models import Sentiment, Signal, Trigger, Verdict, format_pct
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +16,23 @@ _SENTIMENT_ICON = {
     Sentiment.BULLISH: "🟢",
     Sentiment.BEARISH: "🔴",
     Sentiment.NEUTRAL: "🟡",
+}
+
+# Mirrors the dashboard wording so both channels explain an alert the same way.
+_TRIGGER_REASON = {
+    Trigger.MOMENTUM_SHIFT: (
+        "Momentum shift — today's move cleared the alert threshold on its own"
+    ),
+    Trigger.EARNINGS_EVENT: (
+        "Earnings event — results landed, which is material however the price reacts"
+    ),
+    Trigger.ANALYST_ACTION: (
+        "Analyst rating action — an analyst changed their rating or price target"
+    ),
+    Trigger.TREND_CONFIRMATION: (
+        "30-day trend continuation — a smaller move pushed an already-strong "
+        "30-day trend further"
+    ),
 }
 
 
@@ -75,6 +92,8 @@ def render_message(signal: Signal, verdict: Verdict) -> str:
         f"<b>{html.escape(verdict.recommendation)}</b>",
         "",
         html.escape(verdict.reason),
+        "",
+        f"<i>{html.escape(_TRIGGER_REASON[signal.trigger])}.</i>",
     ]
 
     links = [source for source in verdict.sources if source.startswith("http")]

@@ -8,6 +8,7 @@ for, and everything below that bar is discarded silently.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import UTC, datetime, timedelta
 
 from .config import Settings
@@ -15,18 +16,36 @@ from .models import Headline, Quote, Sentiment, Signal, Trigger
 
 logger = logging.getLogger(__name__)
 
+# Triggers where the article, not the price, is the event being reported.
+NEWS_DRIVEN_TRIGGERS = frozenset({Trigger.EARNINGS_EVENT, Trigger.ANALYST_ACTION})
+
 BEARISH_KEYWORDS = (
     "miss",
     "misses",
+    "missed",
     "cut",
     "cuts",
     "downgrade",
     "downgrades",
+    "downgraded",
+    "lowers",
+    "lowered",
+    "bearish",
+    "underperform",
+    # Rating vocabulary. Matched on whole words, so "sells" and "best-selling"
+    # do not count as a sell rating.
+    "sell",
+    "underweight",
     "probe",
     "lawsuit",
     "recall",
     "warns",
     "slump",
+    "slumps",
+    "plunge",
+    "plunges",
+    "sinks",
+    "disappoints",
     "delay",
 )
 BULLISH_KEYWORDS = (
@@ -34,9 +53,19 @@ BULLISH_KEYWORDS = (
     "beats",
     "upgrade",
     "upgrades",
+    "upgraded",
     "raises",
+    "raised",
+    "bullish",
+    "outperform",
+    "buy",
+    "overweight",
     "record",
     "surge",
+    "surges",
+    "soars",
+    "rallies",
+    "tops",
     "wins",
     "approval",
     "expands",
@@ -77,7 +106,7 @@ def evaluate(quote: Quote, settings: Settings) -> Signal | None:
 
     return Signal(
         quote=quote,
-        sentiment=_resolve_sentiment(daily, headline, settings),
+        sentiment=_resolve_sentiment(daily, trigger, headline, settings),
         trigger=trigger,
         headline=headline,
     )
@@ -103,16 +132,44 @@ def _find_headline(quote: Quote, category: str, settings: Settings) -> Headline 
 
 def _resolve_sentiment(
     daily: float,
+    trigger: Trigger,
     headline: Headline | None,
     settings: Settings,
 ) -> Sentiment:
+    """Direction of the alert, decided by whatever actually caused it.
+
+    On a news trigger the article is the event, so only its wording may set a
+    colour. A quiet day drifting +0.6% says nothing about a downgrade, and
+    borrowing that direction is what used to paint a warning green, so an
+    article we cannot read confidently stays neutral instead.
+
+    A momentum shift or trend move is its own event, so there the price decides.
+    """
+    if trigger in NEWS_DRIVEN_TRIGGERS:
+        return _headline_sentiment(headline) or Sentiment.NEUTRAL
+
     if abs(daily) >= settings.noise_threshold_pct:
         return Sentiment.BULLISH if daily > 0 else Sentiment.BEARISH
-
-    # Price has not reacted yet, so lean on the wording of the event itself.
-    title = headline.title.lower() if headline else ""
-    if any(word in title for word in BEARISH_KEYWORDS):
-        return Sentiment.BEARISH
-    if any(word in title for word in BULLISH_KEYWORDS):
-        return Sentiment.BULLISH
     return Sentiment.NEUTRAL
+
+
+def _headline_sentiment(headline: Headline | None) -> Sentiment | None:
+    """None when the wording carries no unambiguous direction.
+
+    Matched on whole words so that "mission" is not read as a miss and
+    "cutting-edge" is not read as a cut.
+    """
+    if headline is None:
+        return None
+
+    title = headline.title.lower()
+    if _mentions(title, BEARISH_KEYWORDS):
+        return Sentiment.BEARISH
+    if _mentions(title, BULLISH_KEYWORDS):
+        return Sentiment.BULLISH
+    return None
+
+
+def _mentions(title: str, keywords: tuple[str, ...]) -> bool:
+    pattern = rf"\b(?:{'|'.join(re.escape(word) for word in keywords)})\b"
+    return re.search(pattern, title) is not None

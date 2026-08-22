@@ -85,8 +85,19 @@ bucketed to whole percent, so a stock parked at −4% stays quiet while a slide 
 gap per ticker; set it to `0` to rely on de-duplication alone and hear about
 every new event the moment it appears.
 
-Sentiment is taken from the direction of the move. When an event lands before
-the price reacts, the wording of the headline decides instead.
+Sentiment follows whatever caused the alert, so a colour never contradicts the
+verdict beside it:
+
+- **Price triggers** (momentum shift, trend continuation) are green or red from
+  the direction of the move — the market itself is the event.
+- **News triggers** (earnings, analyst action) take their colour from the
+  wording of the article, so a downgrade reads bearish even on a green day.
+  When the wording carries no unambiguous direction the alert stays neutral
+  rather than borrowing the day's drift.
+
+Each alert records which trigger fired and the day's move alongside the 30-day
+figure, so the dashboard and the Telegram message both state why it fired and
+not only what to consider doing.
 
 ## Configuration
 
