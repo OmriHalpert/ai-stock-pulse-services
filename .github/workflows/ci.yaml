@@ -84,14 +84,39 @@ jobs:
           path: manifests
 
       - name: Update Image Tags in values-dev.yaml
+        working-directory: manifests
+        env:
+          SHORT_SHA: ${{ github.sha }}
         run: |
-          cd manifests
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          export SHORT_SHA="${SHORT_SHA:0:7}"
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
 
-          # Update backend, frontend, and agent tags to the new short SHA
-          sed -i "s/tag: .*/tag: \"${SHORT_SHA}\"/g" charts/ai-stock-pulse/values-dev.yaml
+          path = Path("charts/ai-stock-pulse/values-dev.yaml")
+          text = path.read_text()
+          sha = os.environ["SHORT_SHA"]
+          updated, count = re.subn(
+              r'^(\s+tag:\s*)".*"\s*$',
+              rf'\1"{sha}"',
+              text,
+              flags=re.M,
+          )
+          if count != 3:
+              raise SystemExit(
+                  f"expected to update 3 image tags in {path}, updated {count}"
+              )
+          path.write_text(updated)
+          print(f"set backend/frontend/agent tags to {sha}")
+          PY
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add charts/ai-stock-pulse/values-dev.yaml
-          git diff --quiet && git diff --staged --quiet || (git commit -m "ci: bump image tag to ${SHORT_SHA} [skip ci]" && git push origin main)
+          if git diff --staged --quiet; then
+            echo "tags already ${SHORT_SHA}; nothing to commit"
+          else
+            git commit -m "ci: bump image tag to ${SHORT_SHA} [skip ci]"
+            git push origin main
+          fi
