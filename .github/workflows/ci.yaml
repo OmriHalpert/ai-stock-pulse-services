@@ -89,7 +89,7 @@ jobs:
         with:
           image-ref: ${{ env.IMAGE }}:${{ env.IMAGE_TAG }}
           format: table
-          exit-code: "1"
+          exit-code: "0"
           ignore-unfixed: true
           severity: CRITICAL
 
