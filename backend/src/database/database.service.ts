@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Pool, QueryResultRow } from 'pg';
+import { runMigrations } from './migrate';
 
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
@@ -36,6 +37,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       try {
         await this.pool.query('SELECT 1');
         this.logger.log('Connected to PostgreSQL');
+        await runMigrations(this.pool);
         return;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
