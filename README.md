@@ -7,7 +7,16 @@ material happens — an earnings miss, an analyst action, or a momentum shift
 beyond the noise band. Each alert lands on a dashboard with a one-sentence
 verdict, and optionally in your Telegram.
 
-The whole stack runs locally with `docker compose up` and needs **no API keys**.
+
+Production on AWS (EKS, Terraform, Argo CD, Prometheus, Loki) is documented in
+the infrastructure and GitOps repos — that is the DevOps half of this project:
+
+- [ai-stock-pulse-infra](https://github.com/OmriHalpert/ai-stock-pulse-infra) — Terraform: Route 53, ACM, ECR, EKS, RDS
+- [ai-stock-pulse-manifests](https://github.com/OmriHalpert/ai-stock-pulse-manifests) — Helm + Argo CD desired state
+
+CI in this repo builds images, pushes them to ECR with **GitHub OIDC** (no
+long-lived AWS keys), and bumps image tags in the manifests repo. Argo CD pulls
+those tags; the pipeline never uses `kubectl`.
 
 ## Architecture
 
